@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AICS 역할 맵핑 & 업무 균형 진단</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+#root{min-height:100vh}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useMemo}=React;
+
+const MEMBERS=["민경윤","김성우","방희태","이기원","이민우","이상묵","이진수","이현행","장유석","전병수","정종호","정택수"];
+const MCOL=["#60A5FA","#34D399","#FBBF24","#A78BFA","#F472B6","#FB923C","#2DD4BF","#E879F9","#FCA5A5","#86EFAC","#93C5FD","#FDE68A"];
+const mc=n=>MCOL[MEMBERS.indexOf(n)%MCOL.length];
+
+const CATS=[
+{group:"기술/개발",color:"#3B82F6",items:[{n:"개발(코딩)",d:""},{n:"유지보수/운영",d:"배포된 서비스의 안정적 운영 및 장애 대응"},{n:"Amazon Connect",d:"AWS 클라우드 기반 컨택센터 솔루션"},{n:"AI/ML",d:"머신러닝 모델 개발 및 AI 서비스 적용"},{n:"인프라 설계",d:"서버, 네트워크, 클라우드 아키텍처 설계"},{n:"QA/테스트",d:"품질 보증 및 기능/성능 테스트"},{n:"개발 지식 공유",d:"기술 세미나, 코드 리뷰 등 지식 전파"},{n:"문서화/기술 문서",d:"API 문서, 시스템 구성도, 매뉴얼 작성"}]},
+{group:"비즈니스",color:"#10B981",items:[{n:"영업/세일즈",d:""},{n:"제안서 작성",d:"고객 제안서, RFP 대응 문서 작성"},{n:"사업계획/전략",d:"사업 방향 수립, 매출 목표, 로드맵"},{n:"고객 응대/CS",d:"고객 문의 대응 및 이슈 해결"},{n:"파트너 협력",d:"외부 파트너사, 벤더와의 협업 관리"},{n:"견적/계약 관리",d:"비용 산출, 계약서 검토 및 관리"}]},
+{group:"기획/관리",color:"#F59E0B",items:[{n:"기획/PM",d:"프로젝트 기획, 요구사항 정의, 전체 관리"},{n:"디자인/UX",d:"UI/UX 디자인, 화면 설계"},{n:"프로젝트 관리",d:"일정, 리스크, 이해관계자 관리"},{n:"일정/리소스 관리",d:"인력 배분, 스케줄 조정, 공수 산정"},{n:"교육/온보딩",d:"신규 입사자 교육, 역량 향상 지원"},{n:"회의 퍼실리테이션",d:"회의 진행, 논의 정리, 의사결정 촉진"}]},
+{group:"지식/성장",color:"#8B5CF6",items:[{n:"최신 트렌드 리서치",d:"업계 동향, 신기술, 경쟁사 분석"},{n:"AI 활용/프롬프트",d:"AI 도구 활용, 프롬프트 엔지니어링"},{n:"클라우드(AWS) 전문성",d:"AWS 서비스 아키텍처, 비용 최적화"},{n:"데이터 분석",d:"데이터 수집, 분석, 인사이트 도출"},{n:"업계 네트워킹",d:"컨퍼런스, 커뮤니티, 외부 인맥 관리"}]},
+{group:"소프트스킬/태도",color:"#EC4899",items:[{n:"리더십",d:""},{n:"긍정 마인드",d:""},{n:"멘토링/코칭",d:"후배·동료 성장 지원, 1:1 피드백"},{n:"갈등 중재",d:"의견 충돌 시 조율 및 합의 도출"},{n:"팀 분위기 메이커",d:"사기 진작, 분위기 환기, 유대감 형성"},{n:"꼼꼼한 마무리",d:"디테일 체크, 빠짐없는 후속 처리"},{n:"위기 대응/문제 해결",d:"돌발 상황 대처, 빠른 판단과 실행"},{n:"커뮤니케이션/조율",d:"부서 간 소통, 이해관계 조정"}]}
+];
+const ALL_ROLES=CATS.flatMap(c=>c.items.map(i=>i.n));
+const getRoleCat=r=>CATS.find(c=>c.items.some(i=>i.n===r));
+
+function App(){
+  const[allData,setAllData]=useState({});
+  const[curUser,setCurUser]=useState(null);
+  const[page,setPage]=useState("select");
+  const[openRole,setOpenRole]=useState(null);
+  const[dashTab,setDashTab]=useState("overview");
+  const[adminPw,setAdminPw]=useState("");
+  const[adminAuth,setAdminAuth]=useState(false);
+
+  const others=curUser?MEMBERS.filter(m=>m!==curUser):[];
+  const myVotes=curUser?(allData[curUser]||{}):{};
+  const totalVotes=Object.values(myVotes).reduce((s,a)=>s+a.length,0);
+  const submitted=Object.keys(allData).filter(k=>{const v=allData[k];return v&&Object.values(v).some(a=>a.length>0);});
+
+  const toggleMember=(role,member)=>{
+    if(!curUser)return;
+    setAllData(prev=>{const vd={...(prev[curUser]||{})};const cur=vd[role]||[];vd[role]=cur.includes(member)?cur.filter(m=>m!==member):[...cur,member];return{...prev,[curUser]:vd};});
+  };
+  const selectAllRole=role=>{if(!curUser)return;setAllData(prev=>{const vd={...(prev[curUser]||{})};vd[role]=[...others];return{...prev,[curUser]:vd};});};
+  const clearAllRole=role=>{if(!curUser)return;setAllData(prev=>{const vd={...(prev[curUser]||{})};vd[role]=[];return{...prev,[curUser]:vd};});};
+
+  const generateTestData=()=>{
+    const td={};
+    MEMBERS.forEach(voter=>{const oth=MEMBERS.filter(m=>m!==voter);const v={};ALL_ROLES.forEach(role=>{const sh=[...oth].sort(()=>Math.random()-.5);v[role]=sh.slice(0,Math.floor(Math.random()*5)+1);});td[voter]=v;});
+    setAllData(td);setPage("admin_gate");
+  };
+
+  const agg=useMemo(()=>{
+    const r={};ALL_ROLES.forEach(role=>{r[role]={};MEMBERS.forEach(m=>{r[role][m]=0;});});
+    submitted.forEach(voter=>{const votes=allData[voter]||{};Object.entries(votes).forEach(([role,members])=>{if(r[role])members.forEach(m=>{if(r[role][m]!==undefined)r[role][m]++;});});});
+    return r;
+  },[allData,submitted]);
+
+  const memberLoad=useMemo(()=>{const l={};MEMBERS.forEach(m=>{l[m]=0;});ALL_ROLES.forEach(r=>{MEMBERS.forEach(m=>{l[m]+=agg[r][m]||0;});});return l;},[agg]);
+  const memberRoles=useMemo(()=>{const r={};MEMBERS.forEach(m=>{r[m]=ALL_ROLES.filter(role=>(agg[role][m]||0)>0).map(role=>({role,votes:agg[role][m]})).sort((a,b)=>b.votes-a.votes);});return r;},[agg]);
+  const sortedMembers=[...MEMBERS].sort((a,b)=>memberLoad[b]-memberLoad[a]);
+  const maxLoad=Math.max(...MEMBERS.map(m=>memberLoad[m]),1);
+
+  const similarity=useMemo(()=>{
+    if(submitted.length<1)return[];
+    const pairs=[];
+    for(let i=0;i<MEMBERS.length;i++){for(let j=i+1;j<MEMBERS.length;j++){
+      const a=MEMBERS[i],b=MEMBERS[j];
+      const aR=new Set(ALL_ROLES.filter(r=>(agg[r][a]||0)>0)),bR=new Set(ALL_ROLES.filter(r=>(agg[r][b]||0)>0));
+      const shared=[...aR].filter(r=>bR.has(r));
+      if(shared.length>0)pairs.push({a,b,shared,count:shared.length,pct:Math.round(shared.length/Math.max(aR.size,bR.size,1)*100)});
+    }}
+    pairs.sort((x,y)=>y.count-x.count);return pairs;
+  },[agg,submitted]);
+
+  const suggestions=useMemo(()=>{
+    const tips=[];
+    const loadArr=MEMBERS.map(m=>({name:m,total:memberLoad[m]})).sort((a,b)=>b.total-a.total);
+    const mx=loadArr[0]?.total||0,mn=loadArr[loadArr.length-1]?.total||0;
+    if(mx>0&&mx>mn*2){
+      const heavy=loadArr.filter(l=>l.total>mx*.7);
+      const cats=[...new Set(heavy.flatMap(h=>(memberRoles[h.name]||[]).slice(0,3).map(r=>getRoleCat(r.role)?.group)).filter(Boolean))];
+      if(heavy.length>0)tips.push({type:"지원 필요",color:"#F59E0B",msg:`${cats.join(", ")} 분야에 업무가 집중되어 있습니다. 해당 영역의 역할 분산 및 추가 지원 인력 배치를 검토해보세요.`});
+    }
+    similarity.slice(0,3).forEach(p=>{
+      tips.push({type:"협업 강화",color:"#F59E0B",msg:`${p.shared.slice(0,3).join(", ")}${p.shared.length>3?" 외":""} 분야에 업무가 과중되어 있습니다. 해당 영역에 추가 인력 지원이나 역할 분담을 검토해보세요.`});
+    });
+    const empty=ALL_ROLES.filter(r=>MEMBERS.every(m=>(agg[r][m]||0)===0));
+    if(empty.length>0)tips.push({type:"공백 역할",color:"#EF4444",msg:`${empty.slice(0,5).join(", ")}${empty.length>5?` 외 ${empty.length-5}개`:""} 역할에 아무도 지목되지 않았습니다.`});
+    const solo=ALL_ROLES.filter(r=>{const p=MEMBERS.filter(m=>(agg[r][m]||0)>0);return p.length===1;});
+    if(solo.length>0)tips.push({type:"백업 필요",color:"#8B5CF6",msg:`${solo.slice(0,5).join(", ")}${solo.length>5?` 외 ${solo.length-5}개`:""} 역할이 1명에게만 집중되어 있습니다. 백업 인력 지정을 권장합니다.`});
+    return tips;
+  },[agg,memberLoad,memberRoles,similarity]);
+
+  const S={root:{fontFamily:"'Pretendard',-apple-system,sans-serif",background:"#0f172a",minHeight:"100vh",color:"#e2e8f0",padding:16}};
+
+  // SELECT
+  if(page==="select"){
+    return React.createElement("div",{style:{...S.root,display:"flex",flexDirection:"column",alignItems:"center",padding:20}},
+      React.createElement("h1",{style:{fontSize:26,fontWeight:800,marginBottom:4,background:"linear-gradient(135deg,#60A5FA,#A78BFA)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}},"AICS 역할 맵핑"),
+      React.createElement("p",{style:{color:"#94a3b8",fontSize:13,marginBottom:4,textAlign:"center"}},React.createElement("span",null,"본인 이름을 선택한 뒤, "),React.createElement("b",null,"다른 팀원들이")," 어떤 역할을 맡고 있는지 체크해주세요"),
+      React.createElement("p",{style:{color:"#64748b",fontSize:11,marginBottom:20}},"본인은 제외되며, 나머지 11명을 각 역할에 배치합니다"),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,maxWidth:480,width:"100%"}},
+        MEMBERS.map(name=>{
+          const done=submitted.includes(name);
+          return React.createElement("button",{key:name,onClick:()=>{setCurUser(name);setPage("input");setOpenRole(null);},style:{padding:"14px 8px",borderRadius:10,border:`2px solid ${done?"#10B981":mc(name)+"44"}`,background:done?"#10B98122":"#1e293b",color:done?"#10B981":mc(name),cursor:"pointer",fontSize:14,fontWeight:700,position:"relative"}},name,done&&React.createElement("span",{style:{position:"absolute",top:4,right:6,fontSize:10}},"✓"));
+        })
+      ),
+      React.createElement("div",{style:{marginTop:14,fontSize:12,color:"#64748b"}},`완료: ${submitted.length} / ${MEMBERS.length}명`),
+      React.createElement("div",{style:{display:"flex",gap:8,marginTop:16}},
+        submitted.length>0&&React.createElement("button",{onClick:()=>setPage("admin_gate"),style:{padding:"12px 28px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#3B82F6,#8B5CF6)",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}},"🔒 결과 보기 (진행자용)")
+      ),
+      React.createElement("button",{onClick:generateTestData,style:{marginTop:12,padding:"8px 20px",borderRadius:8,border:"1px dashed #374151",background:"transparent",color:"#475569",cursor:"pointer",fontSize:11}},"🧪 테스트 데이터 자동 생성")
+    );
+  }
+
+  // INPUT
+  if(page==="input"){
+    return React.createElement("div",{style:S.root},
+      React.createElement("div",{style:{maxWidth:960,margin:"0 auto"}},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}},
+          React.createElement("div",null,
+            React.createElement("h2",{style:{fontSize:20,fontWeight:800,margin:0,color:mc(curUser)}},`${curUser}님이 보는 팀원 역할 배치`),
+            React.createElement("p",{style:{fontSize:12,color:"#94a3b8",margin:"4px 0 0"}},"각 역할을 펼쳐서, 그 역할을 맡고 있다고 생각하는 ",React.createElement("b",null,"다른 팀원"),"을 체크해주세요")
+          ),
+          React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+            React.createElement("span",{style:{fontSize:12,color:"#64748b"}},`총 ${totalVotes}건 배치`),
+            React.createElement("button",{onClick:()=>{setCurUser(null);setPage("select");},style:{padding:"8px 18px",borderRadius:8,border:"none",background:"#10B981",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}},"제출 완료")
+          )
+        ),
+        CATS.map(cat=>React.createElement("div",{key:cat.group,style:{marginBottom:16}},
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:8}},
+            React.createElement("div",{style:{width:4,height:16,borderRadius:2,background:cat.color}}),
+            React.createElement("h3",{style:{fontSize:14,fontWeight:700,margin:0,color:cat.color}},cat.group)
+          ),
+          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6}},
+            cat.items.map(item=>{
+              const sel=myVotes[item.n]||[];
+              const isOpen=openRole===item.n;
+              return React.createElement("div",{key:item.n,style:{background:"#1e293b",borderRadius:10,overflow:"hidden",border:`1px solid ${isOpen?cat.color+"66":"#1e293b"}`}},
+                React.createElement("div",{onClick:()=>setOpenRole(isOpen?null:item.n),style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",cursor:"pointer",userSelect:"none"}},
+                  React.createElement("div",{style:{display:"flex",alignItems:"center",flexWrap:"wrap",gap:4}},
+                    React.createElement("span",{style:{fontSize:13,fontWeight:700,color:"#e2e8f0"}},item.n),
+                    item.d&&React.createElement("span",{style:{fontSize:10,color:"#64748b"}},`— ${item.d}`)
+                  ),
+                  React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                    sel.length>0&&React.createElement("div",{style:{display:"flex",gap:3,flexWrap:"wrap"}},sel.map(m=>React.createElement("span",{key:m,style:{fontSize:10,padding:"2px 6px",borderRadius:4,background:mc(m)+"33",color:mc(m),fontWeight:600}},m))),
+                    React.createElement("span",{style:{fontSize:11,color:cat.color,fontWeight:700}},`${sel.length}명`),
+                    React.createElement("span",{style:{color:"#475569",fontSize:14,transform:isOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform .2s"}},"▼")
+                  )
+                ),
+                isOpen&&React.createElement("div",{style:{padding:"8px 14px 12px",borderTop:"1px solid #ffffff0a"}},
+                  React.createElement("div",{style:{display:"flex",gap:4,marginBottom:8}},
+                    React.createElement("button",{onClick:()=>selectAllRole(item.n),style:{padding:"3px 10px",borderRadius:5,border:"1px solid #374151",background:"transparent",color:"#94a3b8",cursor:"pointer",fontSize:11}},"전체 선택"),
+                    React.createElement("button",{onClick:()=>clearAllRole(item.n),style:{padding:"3px 10px",borderRadius:5,border:"1px solid #374151",background:"transparent",color:"#EF4444",cursor:"pointer",fontSize:11}},"전체 해제")
+                  ),
+                  React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:4}},
+                    others.map(m=>{const chk=sel.includes(m);return React.createElement("div",{key:m,onClick:()=>toggleMember(item.n,m),style:{padding:"7px 10px",borderRadius:6,cursor:"pointer",display:"flex",alignItems:"center",gap:6,background:chk?mc(m)+"15":"#0f172a",border:`1.5px solid ${chk?mc(m):"transparent"}`,userSelect:"none"}},
+                      React.createElement("div",{style:{width:16,height:16,borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",background:chk?mc(m):"transparent",border:`2px solid ${chk?mc(m):"#475569"}`,fontSize:10,color:"#fff",flexShrink:0}},chk?"✓":""),
+                      React.createElement("span",{style:{fontSize:12,fontWeight:600,color:chk?mc(m):"#94a3b8"}},m)
+                    );})
+                  )
+                )
+              );
+            })
+          )
+        ))
+      )
+    );
+  }
+
+  // ADMIN GATE
+  if(page==="admin_gate"&&!adminAuth){
+    return React.createElement("div",{style:{...S.root,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"80vh"}},
+      React.createElement("div",{style:{background:"#1e293b",borderRadius:16,padding:32,maxWidth:400,width:"100%",textAlign:"center"}},
+        React.createElement("div",{style:{fontSize:40,marginBottom:12}},"🔒"),
+        React.createElement("h2",{style:{fontSize:20,fontWeight:800,marginBottom:8}},"진행자 전용"),
+        React.createElement("p",{style:{color:"#94a3b8",fontSize:13,marginBottom:20}},"결과 대시보드는 진행자만 확인할 수 있습니다"),
+        React.createElement("input",{type:"password",value:adminPw,onChange:e=>setAdminPw(e.target.value),placeholder:"비밀번호 입력",onKeyDown:e=>{if(e.key==="Enter"&&adminPw==="aics2026")setAdminAuth(true);},style:{width:"100%",padding:"10px 14px",borderRadius:8,border:"1px solid #374151",background:"#0f172a",color:"#e2e8f0",fontSize:14,marginBottom:12,outline:"none"}}),
+        React.createElement("div",{style:{display:"flex",gap:8}},
+          React.createElement("button",{onClick:()=>{setPage("select");setAdminPw("");},style:{flex:1,padding:"10px",borderRadius:8,border:"1px solid #374151",background:"transparent",color:"#94a3b8",cursor:"pointer",fontSize:13}},"돌아가기"),
+          React.createElement("button",{onClick:()=>{if(adminPw==="aics2026")setAdminAuth(true);},style:{flex:1,padding:"10px",borderRadius:8,border:"none",background:"#3B82F6",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700}},"확인")
+        ),
+        React.createElement("p",{style:{marginTop:12,color:"#475569",fontSize:11}},"기본 비밀번호: aics2026")
+      )
+    );
+  }
+
+  // DASHBOARD
+  return React.createElement("div",{style:S.root},
+    React.createElement("div",{style:{maxWidth:1200,margin:"0 auto"}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}},
+        React.createElement("h1",{style:{fontSize:24,fontWeight:800,margin:0,background:"linear-gradient(135deg,#60A5FA,#A78BFA)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}},"전체 종합 대시보드"),
+        React.createElement("div",{style:{display:"flex",gap:8}},
+          React.createElement("button",{onClick:generateTestData,style:{padding:"7px 14px",borderRadius:8,border:"1px dashed #374151",background:"transparent",color:"#475569",cursor:"pointer",fontSize:11}},"🧪 랜덤 테스트"),
+          React.createElement("button",{onClick:()=>{setPage("select");setAdminAuth(false);setAdminPw("");},style:{padding:"7px 14px",borderRadius:8,border:"1px solid #374151",background:"transparent",color:"#94a3b8",cursor:"pointer",fontSize:12}},"← 입력 화면으로")
+        )
+      ),
+      React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}},
+        React.createElement("span",{style:{fontSize:12,color:"#64748b",alignSelf:"center"}},`참여: ${submitted.length}/12`),
+        submitted.map(v=>React.createElement("span",{key:v,style:{fontSize:11,padding:"3px 10px",borderRadius:6,background:mc(v)+"22",color:mc(v),fontWeight:600}},`${v} ✓`))
+      ),
+      React.createElement("div",{style:{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}},
+        [{k:"overview",l:"종합 현황"},{k:"roles",l:"역할별 상세"},{k:"pairs",l:"유사도 & 분담"},{k:"suggest",l:"💡 제안"}].map(t=>
+          React.createElement("button",{key:t.k,onClick:()=>setDashTab(t.k),style:{padding:"7px 16px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:dashTab===t.k?"#3B82F6":"#1e293b",color:dashTab===t.k?"#fff":"#94a3b8"}},t.l)
+        )
+      ),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,marginBottom:16}},
+        [{v:submitted.length,l:"참여 인원",c:"#3B82F6"},{v:ALL_ROLES.filter(r=>MEMBERS.every(m=>(agg[r][m]||0)===0)).length,l:"공백 역할",c:"#EF4444"},{v:ALL_ROLES.filter(r=>{const p=MEMBERS.filter(m=>(agg[r][m]||0)>0);return p.length===1;}).length,l:"1명만 담당",c:"#F59E0B"},{v:submitted.length>0?(Object.values(memberLoad).reduce((a,b)=>a+b,0)/MEMBERS.length).toFixed(1):0,l:"1인당 평균 득표",c:"#10B981"}].map((s,i)=>
+          React.createElement("div",{key:i,style:{background:"#1e293b",borderRadius:10,padding:12,textAlign:"center"}},
+            React.createElement("div",{style:{fontSize:24,fontWeight:800,color:s.c}},s.v),
+            React.createElement("div",{style:{fontSize:11,color:"#94a3b8"}},s.l)
+          )
+        )
+      ),
+
+      dashTab==="overview"&&React.createElement(React.Fragment,null,
+        React.createElement("div",{style:{background:"#1e293b",borderRadius:12,padding:16,marginBottom:16}},
+          React.createElement("h3",{style:{fontSize:15,fontWeight:700,margin:"0 0 12px"}},"팀원별 총 득표 수"),
+          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6}},
+            sortedMembers.map((name,idx)=>{
+              const load=memberLoad[name];const col=load<=maxLoad*.3?"#10B981":load<=maxLoad*.6?"#F59E0B":"#EF4444";
+              const dn=idx<3?name:`팀원 ${String.fromCharCode(65+idx-3)}`;const nc=idx<3?mc(name):"#64748b";
+              return React.createElement("div",{key:name,style:{display:"flex",alignItems:"center",gap:8}},
+                React.createElement("span",{style:{width:60,fontSize:13,fontWeight:600,color:nc,textAlign:"right",flexShrink:0}},dn),
+                React.createElement("div",{style:{flex:1,height:24,background:"#0f172a",borderRadius:6,overflow:"hidden",position:"relative"}},
+                  React.createElement("div",{style:{height:"100%",width:`${(load/maxLoad)*100}%`,background:col,borderRadius:6,transition:"width .5s"}}),
+                  React.createElement("span",{style:{position:"absolute",right:8,top:4,fontSize:11,fontWeight:700,color:"#e2e8f0"}},`${load}표 (${(memberRoles[name]||[]).length}개 역할)`)
+                )
+              );
+            })
+          )
+        ),
+        React.createElement("div",{style:{background:"#1e293b",borderRadius:12,padding:16}},
+          React.createElement("h3",{style:{fontSize:15,fontWeight:700,margin:"0 0 12px"}},"팀원별 배정 역할 상세"),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:10}},
+            sortedMembers.map((name,idx)=>{
+              const roles=memberRoles[name]||[];const dn=idx<3?name:`팀원 ${String.fromCharCode(65+idx-3)}`;const nc=idx<3?mc(name):"#64748b";
+              return React.createElement("div",{key:name,style:{background:"#0f172a",borderRadius:10,padding:12}},
+                React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:6}},
+                  React.createElement("span",{style:{fontWeight:700,color:nc,fontSize:14}},dn),
+                  React.createElement("span",{style:{fontSize:11,color:"#64748b"}},`${roles.length}개 역할`)
+                ),
+                React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:3}},
+                  roles.slice(0,5).map(r=>{const cat=getRoleCat(r.role);return React.createElement("span",{key:r.role,style:{fontSize:10,padding:"2px 7px",borderRadius:4,background:(cat?.color||"#666")+"22",color:cat?.color||"#999"}},`${r.role} (${r.votes}표)`);}),
+                  roles.length>5&&React.createElement("span",{style:{fontSize:10,color:"#64748b"}},`외 ${roles.length-5}개`),
+                  roles.length===0&&React.createElement("span",{style:{fontSize:11,color:"#475569"}},"배정된 역할 없음")
+                )
+              );
+            })
+          )
+        )
+      ),
+
+      dashTab==="roles"&&React.createElement("div",{style:{background:"#1e293b",borderRadius:12,padding:16}},
+        React.createElement("h3",{style:{fontSize:15,fontWeight:700,margin:"0 0 12px"}},"역할별 담당자 현황 (상위 3명)"),
+        CATS.map(cat=>React.createElement("div",{key:cat.group,style:{marginBottom:14}},
+          React.createElement("div",{style:{fontSize:12,fontWeight:700,color:cat.color,marginBottom:6}},cat.group),
+          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+            cat.items.map(item=>{
+              const ppl=MEMBERS.filter(m=>(agg[item.n][m]||0)>0).sort((a,b)=>agg[item.n][b]-agg[item.n][a]);
+              const top3=ppl.slice(0,3);const rest=ppl.length-3;
+              const bg=ppl.length===0?"#EF444415":ppl.length===1?"#F59E0B15":"#10B98115";
+              const bc=ppl.length===0?"#EF4444":ppl.length===1?"#F59E0B":"#10B981";
+              const medals=["🥇","🥈","🥉"];
+              return React.createElement("div",{key:item.n,style:{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:6,background:bg,border:`1px solid ${bc}22`}},
+                React.createElement("span",{style:{width:160,fontSize:12,fontWeight:600,color:"#e2e8f0",flexShrink:0}},item.n),
+                React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:4,flex:1}},
+                  ppl.length===0&&React.createElement("span",{style:{fontSize:11,color:"#EF4444",fontStyle:"italic"}},"담당자 없음"),
+                  top3.map((m,i)=>React.createElement("span",{key:m,style:{fontSize:11,padding:"2px 8px",borderRadius:5,background:mc(m)+"33",color:mc(m),fontWeight:600}},`${medals[i]} ${m} (${agg[item.n][m]}표)`)),
+                  rest>0&&React.createElement("span",{style:{fontSize:10,color:"#64748b"}},`외 ${rest}명`)
+                )
+              );
+            })
+          )
+        ))
+      ),
+
+      dashTab==="pairs"&&React.createElement("div",{style:{background:"#1e293b",borderRadius:12,padding:16}},
+        React.createElement("h3",{style:{fontSize:15,fontWeight:700,margin:"0 0 4px"}},"역할 유사도 높은 페어"),
+        React.createElement("p",{style:{fontSize:11,color:"#64748b",margin:"0 0 12px"}},"같은 역할에 함께 지목된 횟수가 많은 페어입니다."),
+        similarity.length===0&&React.createElement("div",{style:{color:"#64748b",fontSize:13}},"데이터가 부족합니다"),
+        React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+          similarity.slice(0,10).map((p,i)=>React.createElement("div",{key:i,style:{background:"#0f172a",borderRadius:8,padding:12}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}},
+              React.createElement("span",{style:{fontWeight:700,color:mc(p.a),fontSize:14}},p.a),
+              React.createElement("span",{style:{color:"#475569"}},"↔"),
+              React.createElement("span",{style:{fontWeight:700,color:mc(p.b),fontSize:14}},p.b),
+              React.createElement("span",{style:{fontSize:11,padding:"2px 10px",borderRadius:10,background:"#8B5CF622",color:"#A78BFA",fontWeight:700}},`${p.count}개 겹침 (${p.pct}%)`)
+            ),
+            React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:4}},
+              p.shared.map(r=>{const cat=getRoleCat(r);return React.createElement("span",{key:r,style:{fontSize:10,padding:"2px 7px",borderRadius:4,background:(cat?.color||"#666")+"22",color:cat?.color||"#999"}},r);})
+            )
+          ))
+        )
+      ),
+
+      dashTab==="suggest"&&React.createElement("div",{style:{background:"linear-gradient(135deg,#1e293b,#1a2540)",borderRadius:12,padding:16,border:"1px solid #3B82F644"}},
+        React.createElement("h3",{style:{fontSize:15,fontWeight:700,margin:"0 0 12px",display:"flex",alignItems:"center",gap:6}},React.createElement("span",{style:{fontSize:18}},"💡")," 업무 분배 제안"),
+        suggestions.length===0&&React.createElement("div",{style:{color:"#64748b",fontSize:13}},"아직 충분한 데이터가 없습니다."),
+        React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+          suggestions.map((s,i)=>React.createElement("div",{key:i,style:{background:"#0f172a",borderRadius:8,padding:12,borderLeft:`4px solid ${s.color}`}},
+            React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:4,background:s.color+"22",color:s.color,fontWeight:700}},s.type),
+            React.createElement("p",{style:{fontSize:13,color:"#cbd5e1",margin:"6px 0 0",lineHeight:1.5}},s.msg)
+          ))
+        )
+      )
+    )
+  );
+}
+
+ReactDOM.render(React.createElement(App),document.getElementById("root"));
+</script>
+</body>
+</html>
