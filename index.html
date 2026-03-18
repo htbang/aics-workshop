@@ -58,19 +58,42 @@ function App(){
   const[adminAuth,setAdminAuth]=useState(false);
   const[synced,setSynced]=useState(false);
 
+  // Firebase 키 변환 (슬래시 등 특수문자 치환)
+  const encodeKey=k=>k.replace(/\./g,"__DOT__").replace(/\//g,"__SL__").replace(/#/g,"__HS__").replace(/\$/g,"__DL__").replace(/\[/g,"__LB__").replace(/\]/g,"__RB__");
+  const decodeKey=k=>k.replace(/__DOT__/g,".").replace(/__SL__/g,"/").replace(/__HS__/g,"#").replace(/__DL__/g,"$").replace(/__LB__/g,"[").replace(/__RB__/g,"]");
+
+  const encodeData=(data)=>{
+    const out={};
+    Object.entries(data).forEach(([voter,votes])=>{
+      const ev={};
+      Object.entries(votes).forEach(([role,members])=>{ev[encodeKey(role)]=members;});
+      out[encodeKey(voter)]=ev;
+    });
+    return out;
+  };
+  const decodeData=(data)=>{
+    const out={};
+    Object.entries(data).forEach(([voter,votes])=>{
+      const dv={};
+      if(votes&&typeof votes==="object"){Object.entries(votes).forEach(([role,members])=>{dv[decodeKey(role)]=Array.isArray(members)?members:[];});}
+      out[decodeKey(voter)]=dv;
+    });
+    return out;
+  };
+
   // Firebase 실시간 동기화
   useEffect(()=>{
     const ref=db.ref("votes");
     ref.on("value",(snap)=>{
       const data=snap.val();
-      if(data){setAllData(data);}else{setAllData({});}
+      if(data){setAllData(decodeData(data));}else{setAllData({});}
       setSynced(true);
     });
     return()=>ref.off();
   },[]);
 
   const saveToFirebase=(newData)=>{
-    db.ref("votes").set(newData);
+    db.ref("votes").set(encodeData(newData));
   };
 
   const others=curUser?MEMBERS.filter(m=>m!==curUser):[];
