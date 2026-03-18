@@ -133,7 +133,6 @@ function App(){
     MEMBERS.forEach(voter=>{const oth=MEMBERS.filter(m=>m!==voter);const v={};ALL_ROLES.forEach(role=>{const sh=[...oth].sort(()=>Math.random()-.5);v[role]=sh.slice(0,Math.floor(Math.random()*5)+1);});td[voter]=v;});
     setAllData(td);
     saveToFirebase(td);
-    goPage("admin_gate");
   };
 
   const resetAllData=()=>{
