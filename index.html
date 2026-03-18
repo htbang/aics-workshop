@@ -56,7 +56,7 @@ function App(){
   const generateTestData=()=>{
     const td={};
     MEMBERS.forEach(voter=>{const oth=MEMBERS.filter(m=>m!==voter);const v={};ALL_ROLES.forEach(role=>{const sh=[...oth].sort(()=>Math.random()-.5);v[role]=sh.slice(0,Math.floor(Math.random()*5)+1);});td[voter]=v;});
-    setAllData(td);setPage("admin_gate");
+    setAllData(td);goPage("admin_gate");
   };
 
   const agg=useMemo(()=>{
@@ -101,6 +101,21 @@ function App(){
     return tips;
   },[agg,memberLoad,memberRoles,similarity]);
 
+  // 브라우저 뒤로가기 지원
+  React.useEffect(()=>{
+    const onPop=()=>{
+      if(page==="input"){setCurUser(null);setPage("select");}
+      else if(page==="admin_gate"||page==="dashboard"){setPage("select");setAdminAuth(false);setAdminPw("");}
+      else{window.history.pushState(null,"",window.location.href);}
+    };
+    window.history.pushState(null,"",window.location.href);
+    window.addEventListener("popstate",onPop);
+    return()=>window.removeEventListener("popstate",onPop);
+  },[page]);
+
+  // 페이지 전환 시 히스토리 추가
+  const goPage=(p)=>{window.history.pushState(null,"",window.location.href);setPage(p);};
+
   const S={root:{fontFamily:"'Pretendard',-apple-system,sans-serif",background:"#0f172a",minHeight:"100vh",color:"#e2e8f0",padding:16}};
 
   // SELECT
@@ -112,12 +127,12 @@ function App(){
       React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,maxWidth:480,width:"100%"}},
         MEMBERS.map(name=>{
           const done=submitted.includes(name);
-          return React.createElement("button",{key:name,onClick:()=>{setCurUser(name);setPage("input");setOpenRole(null);},style:{padding:"14px 8px",borderRadius:10,border:`2px solid ${done?"#10B981":mc(name)+"44"}`,background:done?"#10B98122":"#1e293b",color:done?"#10B981":mc(name),cursor:"pointer",fontSize:14,fontWeight:700,position:"relative"}},name,done&&React.createElement("span",{style:{position:"absolute",top:4,right:6,fontSize:10}},"✓"));
+          return React.createElement("button",{key:name,onClick:()=>{setCurUser(name);goPage("input");setOpenRole(null);},style:{padding:"14px 8px",borderRadius:10,border:`2px solid ${done?"#10B981":mc(name)+"44"}`,background:done?"#10B98122":"#1e293b",color:done?"#10B981":mc(name),cursor:"pointer",fontSize:14,fontWeight:700,position:"relative"}},name,done&&React.createElement("span",{style:{position:"absolute",top:4,right:6,fontSize:10}},"✓"));
         })
       ),
       React.createElement("div",{style:{marginTop:14,fontSize:12,color:"#64748b"}},`완료: ${submitted.length} / ${MEMBERS.length}명`),
       React.createElement("div",{style:{display:"flex",gap:8,marginTop:16}},
-        submitted.length>0&&React.createElement("button",{onClick:()=>setPage("admin_gate"),style:{padding:"12px 28px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#3B82F6,#8B5CF6)",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}},"🔒 결과 보기 (진행자용)")
+        submitted.length>0&&React.createElement("button",{onClick:()=>goPage("admin_gate"),style:{padding:"12px 28px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#3B82F6,#8B5CF6)",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}},"🔒 결과 보기 (진행자용)")
       ),
       React.createElement("button",{onClick:generateTestData,style:{marginTop:12,padding:"8px 20px",borderRadius:8,border:"1px dashed #374151",background:"transparent",color:"#475569",cursor:"pointer",fontSize:11}},"🧪 테스트 데이터 자동 생성")
     );
