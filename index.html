@@ -134,6 +134,7 @@ function App(){
           ),
           React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
             React.createElement("span",{style:{fontSize:12,color:"#64748b"}},`총 ${totalVotes}건 배치`),
+            React.createElement("button",{onClick:()=>{setCurUser(null);setPage("select");},style:{padding:"8px 18px",borderRadius:8,border:"1px solid #374151",background:"transparent",color:"#94a3b8",fontSize:13,fontWeight:600,cursor:"pointer"}},"← 돌아가기"),
             React.createElement("button",{onClick:()=>{setCurUser(null);setPage("select");},style:{padding:"8px 18px",borderRadius:8,border:"none",background:"#10B981",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}},"제출 완료")
           )
         ),
